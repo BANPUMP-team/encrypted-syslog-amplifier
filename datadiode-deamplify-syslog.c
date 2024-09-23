@@ -22,6 +22,7 @@
  *      An unofficial Romanian translation of the GNU General Public License is available here: <https://staff.cs.upt.ro/~gnu/Licenta_GPL-3-0_RO.html>.                                        
 */   
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -44,17 +45,16 @@
 
 // destination port for datadiode-deamplify514
 #define SERVERPORT "514"    // the port users will be connecting to, same 514 from RFC 5424
-			     
+
 #define MAXBUFLEN 1024 + 2*sizeof(uint32_t)  // needs jumbo frames for longer lines like 8192+2, set MTU to 9000 on data-diode interfaces
 
-uint64_t prevcounter=0;   // this normally overflows, as it should. we just want to clear duplicate packets on the receiver side
+uint64_t prevcounter = 0;   // this normally overflows, as it should. we just want to clear duplicate packets on the receiver side
 
 uint64_t combine_uint32_to_uint64_be(const uint32_t values[2]) {
     // Ensure the conversion is endianness-portable by manually handling bytes
     uint64_t result = ((uint64_t)values[0] << 32) | (uint64_t)values[1];
     return result;
 }
-
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -71,7 +71,6 @@ void *get_in_addr(struct sockaddr *sa)
 uint8_t get_byte(uint32_t value, size_t index) {
   return (value >> (8 * (3 - index))) & 0xFF;
 }
-
 
 void blocks_to_string(const uint32_t *blocks, size_t num_blocks, char *output, size_t *output_len) {
   size_t i, j;
@@ -107,7 +106,6 @@ uint64_t swap_endianness(uint64_t num) {
            ((num << 56) & 0xFF00000000000000);
 }
 
-
 // Function to convert a big-endian uint64_t to little-endian if the system is little-endian
 uint64_t convert_to_little_endian_if_needed(uint64_t big_endian_value) {
     if (is_little_endian()) {
@@ -121,26 +119,25 @@ int main(void)
     int sockfd, sockfdout;
     struct addrinfo hints, *servinfo, *p;
     int rv;
-    int numbytes,len;
+    int numbytes, len;
     speckr_ctx CTX;
     uint32_t pt[2], ct[2]; 
-    size_t pwdlen, input_len=0;
+    size_t pwdlen, input_len = 0;
     struct sockaddr_storage their_addr;
     char buf[MAXBUFLEN];
     char msg[MAXLINESIZE];
     socklen_t addr_len;
-    uint32_t ct_blocks[MAXLINESIZE*2/8+2], pt_blocks[MAXLINESIZE*2/8]; // multiple of 8
+    uint32_t ct_blocks[MAXLINESIZE * 2 / 8 + 2], pt_blocks[MAXLINESIZE * 2 / 8]; // multiple of 8
 
     printf("Preparing serial-number to be used as password..\n");
     speckr_init(&CTX, SERIALNUMBER);
     printf("Current serial number for amplifier device is %s\n", SERIALNUMBER);
     printf("MYPORT is %s, SERVERPORT on the other side is %s\n", MYPORT, SERVERPORT);
 
-
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET6; // set to AF_INET6 to use IPv6
+    hints.ai_family = AF_UNSPEC; // Use AF_UNSPEC to listen on both IPv4 and IPv6
     hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
+    hints.ai_flags = AI_PASSIVE; // Use my IP
 
     if ((rv = getaddrinfo(NULL, MYPORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
@@ -148,7 +145,7 @@ int main(void)
     }
 
     // loop through all the results and bind to the first we can
-    for(p = servinfo; p != NULL; p = p->ai_next) {
+    for (p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
             perror("listener: socket");
@@ -184,7 +181,7 @@ int main(void)
     }
 
     // loop through all the results and make a socket
-    for(p = servinfo; p != NULL; p = p->ai_next) {
+    for (p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfdout = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
             perror("talker: socket");
@@ -202,73 +199,72 @@ int main(void)
     uint64_t counter64 = 0;
     uint32_t counter32[2];
     size_t num_blocks, backup_num_blocks;
-    
+
     prevcounter = 65535;
     char *ptr = buf + sizeof(uint16_t);
     while (1) {  // infinite loop, in UDP packets may be lost so this is preferred 
-	for (size_t i = 0; i<MAXLINESIZE*2/8; i++) {
-		ct_blocks[i] = 0; // smaller
-		pt_blocks[i] = 0;
-	}
-
-	if ((numbytes = recvfrom(sockfd, ct_blocks, sizeof(ct_blocks), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-        perror("listener: recvfrom");
+        for (size_t i = 0; i < MAXLINESIZE * 2 / 8; i++) {
+            ct_blocks[i] = 0; // smaller
+            pt_blocks[i] = 0;
         }
 
-	num_blocks = numbytes / sizeof(uint32_t); // Number of uint32_t blocks received
-	printf("Number of blocks received: %u\n", num_blocks);
+        if ((numbytes = recvfrom(sockfd, ct_blocks, sizeof(ct_blocks), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+            perror("listener: recvfrom");
+        }
+
+        num_blocks = numbytes / sizeof(uint32_t); // Number of uint32_t blocks received
+        printf("Number of blocks received: %zu\n", num_blocks);
         printf("listener: packet contains: ");
         for (size_t i = 0; i < num_blocks; i++) {
             printf("%08X ", ct_blocks[i]);
         }
         printf("\n");
 
-	if (is_little_endian()) {
-		counter32[0] = ct_blocks[1];
-		counter32[1] = ct_blocks[0];
-	} else {
-		counter32[0] = ct_blocks[0];
-		counter32[1] = ct_blocks[1];
-	}
-	counter64=combine_uint32_to_uint64_be(counter32);
-	counter64=convert_to_little_endian_if_needed(counter64);
+        if (is_little_endian()) {
+            counter32[0] = ct_blocks[1];
+            counter32[1] = ct_blocks[0];
+        } else {
+            counter32[0] = ct_blocks[0];
+            counter32[1] = ct_blocks[1];
+        }
+        counter64 = combine_uint32_to_uint64_be(counter32);
+        counter64 = convert_to_little_endian_if_needed(counter64);
 
-	
-	backup_num_blocks = num_blocks;
+        backup_num_blocks = num_blocks;
         if (num_blocks % 2 == 1) num_blocks++;
 
-	if (counter64 != prevcounter) { // skip duplicate (amplified) lines
+        if (counter64 != prevcounter) { // skip duplicate (amplified) lines
 
-	   // Decrypt each block but first 2 blocks are the plaintext counter
-	    for (size_t i = 2; i < num_blocks; i += 2) {
-	    	ct[0] = ct_blocks[i];
-		ct[1] = ct_blocks[i+1];
+            // Decrypt each block but first 2 blocks are the plaintext counter
+            for (size_t i = 2; i < num_blocks; i += 2) {
+                ct[0] = ct_blocks[i];
+                ct[1] = ct_blocks[i + 1];
 
-		/* 
-		 * it is recommended to use fixed packet size like MAXLINESIZE to avoid repeating counters 
-		 *
-		 * make sure you read the comments in the amplifier (sender) so that you understand SpeckR
-		 * in asynchronous (shuffled) mode requires that we encrypt/decrypt the same number of blocks
-		 * in order to keep the dynamic Sboxes consistent between the sender and the receiver
-		 */
-		SpeckREncrypt_async(ct, pt, &CTX, counter64, MAXLINESIZE, i-2); // i-2
-		pt_blocks[i-2] = pt[0];
-		pt_blocks[i+1-2] = pt[1];
-    	    }	
-	   // Print blocks
-	    printf("Decrypted Blocks:\n");
-	    for (size_t i = 0; i < num_blocks-2; i++) {
-        	printf("%08x ",pt_blocks[i]);
-	    }
-	    printf("\n");
+                /* 
+                 * it is recommended to use fixed packet size like MAXLINESIZE to avoid repeating counters 
+                 *
+                 * make sure you read the comments in the amplifier (sender) so that you understand SpeckR
+                 * in asynchronous (shuffled) mode requires that we encrypt/decrypt the same number of blocks
+                 * in order to keep the dynamic Sboxes consistent between the sender and the receiver
+                 */
+                SpeckREncrypt_async(ct, pt, &CTX, counter64, MAXLINESIZE, i - 2); // i-2
+                pt_blocks[i - 2] = pt[0];
+                pt_blocks[i + 1 - 2] = pt[1];
+            }
+            // Print blocks
+            printf("Decrypted Blocks:\n");
+            for (size_t i = 0; i < num_blocks - 2; i++) {
+                printf("%08x ", pt_blocks[i]);
+            }
+            printf("\n");
             memset(msg, 0x0, MAXLINESIZE);
-	    blocks_to_string(pt_blocks, backup_num_blocks, msg, &input_len);
-	
-		if ((numbytes = sendto(sockfdout, msg, input_len, 0, p->ai_addr, p->ai_addrlen)) == -1) { // send to syslog
-       			perror("talker: sendto");
-		}
-		prevcounter = counter64;
-	}
+            blocks_to_string(pt_blocks, backup_num_blocks, msg, &input_len);
+
+            if ((numbytes = sendto(sockfdout, msg, input_len, 0, p->ai_addr, p->ai_addrlen)) == -1) { // send to syslog
+                perror("talker: sendto");
+            }
+            prevcounter = counter64;
+        }
     }
 
     /* 
@@ -280,11 +276,3 @@ int main(void)
 
     return 0;
 }
-
-
-
-
-
-
-
-
