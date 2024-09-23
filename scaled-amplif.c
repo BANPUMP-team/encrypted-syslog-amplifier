@@ -1,3 +1,27 @@
+/*
+ *      (C) 2024 Alin Anton <alin.anton@cs.upt.ro>
+ * 
+ *      This software servers as an example of how to amplify and pipe syslog UDP messages through optical data diodes in order to mitigate for
+ *      UDP packet loss. 
+ *
+ *      It is based on "Beej's Guide on Network Programming". 
+ *
+ *      Principal Investigator: Alin-Adrian Anton <alin.anton@cs.upt.ro>
+ *      Project members: Razvan-Dorel Cioarga <razvan.cioarga@cs.upt.ro>
+ *                       Eugenia Capota <eugenia.capota@cs.upt.ro>
+ *                       Petra Csereoka <petra.csereoka@cs.upt.ro>
+ *                       Bianca Gusita <bianca.gusita@cs.upt.ro>
+ *
+ *      This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+ *      either version 3 of the License, or (at your option) any later version.
+ *
+ *      This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *      See the GNU General Public License for more details.
+ *      You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>. 
+ *
+ *      An unofficial Romanian translation of the GNU General Public License is available here: <https://staff.cs.upt.ro/~gnu/Licenta_GPL-3-0_RO.html>.                                        
+ */   
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
