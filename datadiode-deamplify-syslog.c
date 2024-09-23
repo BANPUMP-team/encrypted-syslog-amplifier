@@ -22,7 +22,6 @@
  *      An unofficial Romanian translation of the GNU General Public License is available here: <https://staff.cs.upt.ro/~gnu/Licenta_GPL-3-0_RO.html>.                                        
 */   
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -114,8 +113,7 @@ uint64_t convert_to_little_endian_if_needed(uint64_t big_endian_value) {
     return big_endian_value;
 }
 
-int main(void)
-{
+int main(int argc, char *argv[]) {
     int sockfd, sockfdout;
     struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -129,10 +127,18 @@ int main(void)
     socklen_t addr_len;
     uint32_t ct_blocks[MAXLINESIZE * 2 / 8 + 2], pt_blocks[MAXLINESIZE * 2 / 8]; // multiple of 8
 
-    printf("Preparing serial-number to be used as password..\n");
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <syslog-server>\n", argv[0]);
+        return 1;
+    }
+
+    char *syslog_server = argv[1]; // Syslog server provided as command-line argument
+
+    printf("Preparing serial-number to be used as password...\n");
     speckr_init(&CTX, SERIALNUMBER);
     printf("Current serial number for amplifier device is %s\n", SERIALNUMBER);
     printf("MYPORT is %s, SERVERPORT on the other side is %s\n", MYPORT, SERVERPORT);
+    printf("Syslog server is %s\n", syslog_server);
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // Use AF_UNSPEC to listen on both IPv4 and IPv6
@@ -171,11 +177,12 @@ int main(void)
     printf("listener: waiting to recvfrom...\n");
     addr_len = sizeof their_addr;
 
+    // Get address information for the syslog server specified in the command line
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // set to AF_INET6 to use IPv6
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((rv = getaddrinfo("localhost", SERVERPORT, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(syslog_server, SERVERPORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -232,7 +239,7 @@ int main(void)
 
         backup_num_blocks = num_blocks;
         if (num_blocks % 2 == 1) num_blocks++;
-
+	
         if (counter64 != prevcounter) { // skip duplicate (amplified) lines
 
             // Decrypt each block but first 2 blocks are the plaintext counter
@@ -276,3 +283,4 @@ int main(void)
 
     return 0;
 }
+
